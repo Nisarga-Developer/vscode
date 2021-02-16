@@ -132,7 +132,7 @@ export class UserDataSyncStoreManagementService extends AbstractUserDataSyncStor
 	}
 
 	async switch(type: UserDataSyncStoreType, donotRefresh: boolean): Promise<void> {
-		if (type !== this.userDataSyncStore?.type) {
+		if (type !== this.userDataSyncStoreType) {
 			this.userDataSyncStoreType = type;
 			if (!donotRefresh) {
 				await this.refresh();
