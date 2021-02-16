@@ -5,7 +5,7 @@
 
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { ExtensionsInitializer } from 'vs/platform/userDataSync/common/extensionsSync';
-import { GlobalStateInitializer } from 'vs/platform/userDataSync/common/globalStateSync';
+import { GlobalStateInitializer, UserDataSyncStoreTypeSynchronizer } from 'vs/platform/userDataSync/common/globalStateSync';
 import { KeybindingsInitializer } from 'vs/platform/userDataSync/common/keybindingsSync';
 import { SettingsInitializer } from 'vs/platform/userDataSync/common/settingsSync';
 import { SnippetsInitializer } from 'vs/platform/userDataSync/common/snippetsSync';
@@ -140,7 +140,7 @@ export class UserDataInitializationService implements IUserDataInitializationSer
 			this.globalStateUserData = await userDataSyncStoreClient.read(SyncResource.GlobalState, null);
 
 			if (this.globalStateUserData) {
-				const userDataSyncStoreType = new GlobalStateInitializer(this.storageService, this.fileService, this.environmentService, this.logService).getSyncStoreType(this.globalStateUserData);
+				const userDataSyncStoreType = new UserDataSyncStoreTypeSynchronizer(userDataSyncStoreClient, this.storageService, this.environmentService, this.fileService).getSyncStoreType(this.globalStateUserData);
 				if (userDataSyncStoreType) {
 					await this.userDataSyncStoreManagementService.switch(userDataSyncStoreType);
 

@@ -193,6 +193,12 @@ export interface IUserDataSyncBackupStoreService {
 export const HEADER_OPERATION_ID = 'x-operation-id';
 export const HEADER_EXECUTION_ID = 'X-Execution-Id';
 
+export function createSyncHeaders(executionId: string): IHeaders {
+	const headers: IHeaders = {};
+	headers[HEADER_EXECUTION_ID] = executionId;
+	return headers;
+}
+
 //#endregion
 
 // #region User Data Sync Error

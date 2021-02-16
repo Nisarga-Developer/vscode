@@ -29,6 +29,10 @@ import { IProductService } from 'vs/platform/product/common/productService';
 import product from 'vs/platform/product/common/product';
 import { IUserDataAutoSyncEnablementService, IUserDataSyncService, IUserDataSyncStoreManagementService, UserDataSyncStoreType } from 'vs/platform/userDataSync/common/userDataSync';
 import { IsWebContext } from 'vs/platform/contextkey/common/contextkeys';
+import { IUserDataSyncAccountService } from 'vs/platform/userDataSync/common/userDataSyncAccount';
+import { UserDataSyncStoreClient } from 'vs/platform/userDataSync/common/userDataSyncStoreService';
+import { UserDataSyncStoreTypeSynchronizer } from 'vs/platform/userDataSync/common/globalStateSync';
+import { Promises } from 'vs/base/common/async';
 
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Idle);
 
@@ -547,10 +551,14 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 					const userDataSyncStoreManagementService = accessor.get(IUserDataSyncStoreManagementService);
 					const storageService = accessor.get(IStorageService);
 					const userDataSyncService = accessor.get(IUserDataSyncService);
+					const userDataSyncAccountService = accessor.get(IUserDataSyncAccountService);
+					const instantiationService = accessor.get(IInstantiationService);
+					const notificationService = accessor.get(INotificationService);
 
 					const selectSettingsSyncServiceDialogShownKey = 'switchQuality.selectSettingsSyncServiceDialogShown';
+					const userDataSyncStore = userDataSyncStoreManagementService.userDataSyncStore;
 					let userDataSyncStoreType: UserDataSyncStoreType | undefined;
-					if (isSwitchingToInsiders && userDataAutoSyncEnablementService.isEnabled()
+					if (userDataSyncStore && isSwitchingToInsiders && userDataAutoSyncEnablementService.isEnabled()
 						&& !storageService.getBoolean(selectSettingsSyncServiceDialogShownKey, StorageScope.GLOBAL, false)) {
 						userDataSyncStoreType = await this.selectSettingsSyncService(dialogService);
 						if (!userDataSyncStoreType) {
@@ -572,10 +580,30 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 							await userDataSyncStoreManagementService.switch(userDataSyncStoreType, true);
 							storageService.store(selectSettingsSyncServiceDialogShownKey, true, StorageScope.GLOBAL, StorageTarget.USER);
 
-							// Make sure choices are stored and synced
-							await storageService.flush();
-							await userDataSyncService.syncGlobalState();
+							const promises: Promise<any>[] = [];
+
+							// Synchronise the stable service type option in insiders service
+							// So that other clients using insiders service are also updated.
+							if (isSwitchingToInsiders && userDataSyncStoreType === 'stable') {
+								if (!userDataSyncAccountService.account) {
+									notificationService.error(nls.localize('signed off', "Cannot update settings sync service because you are signed out from settings sync. Please sign in and try again."));
+									return;
+								}
+
+								const userDataSyncStoreClient = instantiationService.createInstance(UserDataSyncStoreClient, userDataSyncStore!.insidersUrl);
+								userDataSyncStoreClient.setAuthToken(userDataSyncAccountService.account.token, userDataSyncAccountService.account.authenticationProviderId);
+								promises.push(instantiationService.createInstance(UserDataSyncStoreTypeSynchronizer, userDataSyncStoreClient).update(userDataSyncStoreType));
+							}
+
+							promises.push((async () => {
+								// Make sure choices are stored and synced
+								await storageService.flush();
+								await userDataSyncService.syncGlobalState();
+							})());
+
+							await Promises.settled(promises);
 						}
+
 						productQualityChangeHandler(newQuality);
 					}
 				}
