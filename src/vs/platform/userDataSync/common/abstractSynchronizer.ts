@@ -843,7 +843,7 @@ export abstract class AbstractInitializer implements IUserDataInitializer {
 		}
 	}
 
-	private parseSyncData(content: string): ISyncData | undefined {
+	protected parseSyncData(content: string): ISyncData | undefined {
 		try {
 			const syncData: ISyncData = JSON.parse(content);
 			if (isSyncData(syncData)) {

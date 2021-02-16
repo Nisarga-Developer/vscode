@@ -5,7 +5,7 @@
 
 import {
 	IUserDataSyncStoreService, IUserDataSyncLogService, IGlobalState, SyncResource, IUserDataSynchroniser, IUserDataSyncResourceEnablementService,
-	IUserDataSyncBackupStoreService, ISyncResourceHandle, IStorageValue, USER_DATA_SYNC_SCHEME, IRemoteUserData, Change, ALL_SYNC_RESOURCES, getEnablementKey, SYNC_SERVICE_URL_TYPE
+	IUserDataSyncBackupStoreService, ISyncResourceHandle, IStorageValue, USER_DATA_SYNC_SCHEME, IRemoteUserData, Change, ALL_SYNC_RESOURCES, getEnablementKey, SYNC_SERVICE_URL_TYPE, UserDataSyncStoreType, IUserData
 } from 'vs/platform/userDataSync/common/userDataSync';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Event } from 'vs/base/common/event';
@@ -368,6 +368,16 @@ export class GlobalStateInitializer extends AbstractInitializer {
 		@IUserDataSyncLogService logService: IUserDataSyncLogService,
 	) {
 		super(SyncResource.GlobalState, environmentService, logService, fileService);
+	}
+
+	getSyncStoreType({ content }: IUserData): UserDataSyncStoreType | undefined {
+		if (!content) {
+			return undefined;
+		}
+
+		const syncData = this.parseSyncData(content);
+		const remoteGlobalState: IGlobalState = syncData ? JSON.parse(syncData.content) : null;
+		return remoteGlobalState?.storage[SYNC_SERVICE_URL_TYPE]?.value as UserDataSyncStoreType;
 	}
 
 	async doInitialize(remoteUserData: IRemoteUserData): Promise<void> {
