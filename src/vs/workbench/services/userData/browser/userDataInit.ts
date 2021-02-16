@@ -127,7 +127,7 @@ export class UserDataInitializationService implements IUserDataInitializationSer
 
 	private async initializeUserDataSyncStore(authenticationSession: AuthenticationSessionInfo): Promise<void> {
 		const userDataSyncStore = this.userDataSyncStoreManagementService.userDataSyncStore;
-		if (!userDataSyncStore) {
+		if (!userDataSyncStore?.canSwitch) {
 			return;
 		}
 
