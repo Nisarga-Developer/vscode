@@ -41,10 +41,10 @@ export abstract class AbstractUserDataSyncStoreManagementService extends Disposa
 	private _userDataSyncStore: UserDataSyncStore | undefined;
 	get userDataSyncStore(): UserDataSyncStore | undefined { return this._userDataSyncStore; }
 
-	private get userDataSyncStoreType(): UserDataSyncStoreType | undefined {
+	protected get userDataSyncStoreType(): UserDataSyncStoreType | undefined {
 		return this.storageService.get(SYNC_SERVICE_URL_TYPE, StorageScope.GLOBAL) as UserDataSyncStoreType;
 	}
-	private set userDataSyncStoreType(type: UserDataSyncStoreType | undefined) {
+	protected set userDataSyncStoreType(type: UserDataSyncStoreType | undefined) {
 		this.storageService.store(SYNC_SERVICE_URL_TYPE, type, StorageScope.GLOBAL, isWeb ? StorageTarget.USER /* sync in web */ : StorageTarget.MACHINE);
 	}
 
@@ -55,6 +55,7 @@ export abstract class AbstractUserDataSyncStoreManagementService extends Disposa
 	) {
 		super();
 		this.updateUserDataSyncStore();
+		this._register(Event.filter(storageService.onDidChangeValue, e => e.key === SYNC_SERVICE_URL_TYPE && e.scope === StorageScope.GLOBAL && this.userDataSyncStoreType !== this.userDataSyncStore?.type)(() => this.updateUserDataSyncStore()));
 	}
 
 	protected updateUserDataSyncStore(): void {
@@ -96,13 +97,8 @@ export abstract class AbstractUserDataSyncStoreManagementService extends Disposa
 		return undefined;
 	}
 
-	set(type: UserDataSyncStoreType) {
-		if (this.userDataSyncStore) {
-			this.userDataSyncStoreType = type;
-		}
-	}
-
-	abstract switch(type: UserDataSyncStoreType): Promise<void>;
+	abstract switch(type: UserDataSyncStoreType, donotRefresh: boolean): Promise<void>;
+	abstract refresh(): Promise<void>;
 	abstract getPreviousUserDataSyncStore(): Promise<IUserDataSyncStore | undefined>;
 
 }
@@ -131,10 +127,16 @@ export class UserDataSyncStoreManagementService extends AbstractUserDataSyncStor
 		}
 	}
 
-	async switch(type: UserDataSyncStoreType): Promise<void> {
+	async refresh(): Promise<void> {
+		this.updateUserDataSyncStore();
+	}
+
+	async switch(type: UserDataSyncStoreType, donotRefresh: boolean): Promise<void> {
 		if (this.userDataSyncStore?.canSwitch && type !== this.userDataSyncStore.type) {
-			this.set(type);
-			this.updateUserDataSyncStore();
+			this.userDataSyncStoreType = type;
+			if (!donotRefresh) {
+				await this.refresh();
+			}
 		}
 	}
 

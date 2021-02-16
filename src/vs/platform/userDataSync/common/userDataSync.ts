@@ -149,8 +149,8 @@ export interface IUserDataSyncStoreManagementService {
 	readonly _serviceBrand: undefined;
 	readonly onDidChangeUserDataSyncStore: Event<void>;
 	readonly userDataSyncStore: IUserDataSyncStore | undefined;
-	set(type: UserDataSyncStoreType): void;
-	switch(type: UserDataSyncStoreType): Promise<void>;
+	switch(type: UserDataSyncStoreType, donotRefresh?: boolean): Promise<void>;
+	refresh(): Promise<void>;
 	getPreviousUserDataSyncStore(): Promise<IUserDataSyncStore | undefined>;
 }
 
@@ -447,6 +447,7 @@ export interface IUserDataSyncService {
 
 	createSyncTask(disableCache?: boolean): Promise<ISyncTask>;
 	createManualSyncTask(): Promise<IManualSyncTask>;
+	syncGlobalState(): Promise<void>;
 
 	replace(uri: URI): Promise<void>;
 	reset(): Promise<void>;

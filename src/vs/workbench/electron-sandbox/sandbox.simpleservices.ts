@@ -574,6 +574,7 @@ class SimpleUserDataSyncService implements IUserDataSyncService {
 
 	createSyncTask(): Promise<ISyncTask> { throw new Error('Method not implemented.'); }
 	createManualSyncTask(): Promise<IManualSyncTask> { throw new Error('Method not implemented.'); }
+	syncGlobalState(): Promise<void> { throw new Error('Method not implemented.'); }
 
 	async replace(uri: URI): Promise<void> { }
 	async reset(): Promise<void> { }
@@ -644,7 +645,7 @@ class SimpleUserDataSyncStoreManagementService implements IUserDataSyncStoreMana
 
 	userDataSyncStore: IUserDataSyncStore | undefined = undefined;
 
-	set(type: UserDataSyncStoreType): void { }
+	async refresh(): Promise<void> { }
 
 	async switch(type: UserDataSyncStoreType): Promise<void> { }
 

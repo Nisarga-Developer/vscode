@@ -129,7 +129,8 @@ export class UserDataSyncStoreManagementServiceChannel implements IServerChannel
 
 	call(context: any, command: string, args?: any): Promise<any> {
 		switch (command) {
-			case 'switch': return this.service.switch(args[0]);
+			case 'switch': return this.service.switch(args[0], args[1]);
+			case 'refresh': return this.service.refresh();
 			case 'getPreviousUserDataSyncStore': return this.service.getPreviousUserDataSyncStore();
 		}
 		throw new Error('Invalid call');
@@ -145,8 +146,12 @@ export class UserDataSyncStoreManagementServiceChannelClient extends Disposable 
 		this.onDidChangeUserDataSyncStore = this.channel.listen<void>('onDidChangeUserDataSyncStore');
 	}
 
-	async switch(type: UserDataSyncStoreType): Promise<void> {
-		return this.channel.call('switch', [type]);
+	async switch(type: UserDataSyncStoreType, donotRefresh?: boolean): Promise<void> {
+		return this.channel.call('switch', [type, donotRefresh]);
+	}
+
+	async refresh(): Promise<void> {
+		return this.channel.call('refresh');
 	}
 
 	async getPreviousUserDataSyncStore(): Promise<IUserDataSyncStore> {

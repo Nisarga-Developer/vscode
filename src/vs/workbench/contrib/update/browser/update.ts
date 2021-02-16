@@ -27,7 +27,7 @@ import { ShowCurrentReleaseNotesActionId, CheckForVSCodeUpdateActionId } from 'v
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { IProductService } from 'vs/platform/product/common/productService';
 import product from 'vs/platform/product/common/product';
-import { IUserDataAutoSyncEnablementService, IUserDataSyncStoreManagementService, UserDataSyncStoreType } from 'vs/platform/userDataSync/common/userDataSync';
+import { IUserDataAutoSyncEnablementService, IUserDataSyncService, IUserDataSyncStoreManagementService, UserDataSyncStoreType } from 'vs/platform/userDataSync/common/userDataSync';
 import { IsWebContext } from 'vs/platform/contextkey/common/contextkeys';
 
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Idle);
@@ -546,6 +546,7 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 					const userDataAutoSyncEnablementService = accessor.get(IUserDataAutoSyncEnablementService);
 					const userDataSyncStoreManagementService = accessor.get(IUserDataSyncStoreManagementService);
 					const storageService = accessor.get(IStorageService);
+					const userDataSyncService = accessor.get(IUserDataSyncService);
 
 					const selectSettingsSyncServiceDialogShownKey = 'switchQuality.selectSettingsSyncServiceDialogShown';
 					let userDataSyncStoreType: UserDataSyncStoreType | undefined;
@@ -568,9 +569,12 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 
 					if (res.confirmed) {
 						if (userDataSyncStoreType !== undefined) {
-							userDataSyncStoreManagementService.set(userDataSyncStoreType);
+							await userDataSyncStoreManagementService.switch(userDataSyncStoreType, true);
 							storageService.store(selectSettingsSyncServiceDialogShownKey, true, StorageScope.GLOBAL, StorageTarget.USER);
+
+							// Make sure choices are stored and synced
 							await storageService.flush();
+							await userDataSyncService.syncGlobalState();
 						}
 						productQualityChangeHandler(newQuality);
 					}
@@ -586,7 +590,7 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 							nls.localize('cancel', "Cancel"),
 						],
 						{
-							detail: nls.localize('selectSyncService.detail', "Insiders version of VSCode will synchronize your settings, keybindings, extensions, snippets and UI State using separete insiders settings sync service by default."),
+							detail: nls.localize('selectSyncService.detail', "Insiders version of VSCode will synchronize your settings, keybindings, extensions, snippets and UI State using separate insiders settings sync service by default."),
 							cancelId: 2
 						}
 					);

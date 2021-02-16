@@ -27,8 +27,12 @@ class UserDataSyncStoreManagementService extends AbstractUserDataSyncStoreManage
 		this._register(this.channelClient.onDidChangeUserDataSyncStore(() => this.updateUserDataSyncStore()));
 	}
 
-	async switch(type: UserDataSyncStoreType): Promise<void> {
-		return this.channelClient.switch(type);
+	async switch(type: UserDataSyncStoreType, donotRefresh?: boolean): Promise<void> {
+		return this.channelClient.switch(type, donotRefresh);
+	}
+
+	async refresh(): Promise<void> {
+		return this.channelClient.refresh();
 	}
 
 	async getPreviousUserDataSyncStore(): Promise<IUserDataSyncStore> {

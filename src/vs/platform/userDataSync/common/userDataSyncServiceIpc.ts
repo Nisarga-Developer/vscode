@@ -54,6 +54,7 @@ export class UserDataSyncChannel implements IServerChannel {
 
 			// sync
 			case '_getInitialData': return Promise.resolve([this.service.status, this.service.conflicts, this.service.lastSyncTime]);
+			case 'syncGlobalState': return this.service.syncGlobalState();
 			case 'replace': return this.service.replace(URI.revive(args[0]));
 			case 'reset': return this.service.reset();
 			case 'resetRemote': return this.service.resetRemote();
@@ -193,6 +194,10 @@ export class UserDataSyncChannelClient extends Disposable implements IUserDataSy
 			}
 		});
 		return manualSyncTaskChannelClient;
+	}
+
+	syncGlobalState(): Promise<void> {
+		return this.channel.call('syncGlobalState');
 	}
 
 	replace(uri: URI): Promise<void> {
