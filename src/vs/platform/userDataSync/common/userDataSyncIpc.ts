@@ -26,7 +26,7 @@ export class UserDataAutoSyncChannel implements IServerChannel {
 
 	call(context: any, command: string, args?: any): Promise<any> {
 		switch (command) {
-			case 'triggerSync': return this.service.triggerSync(args[0], args[1], args[2]);
+			case 'triggerSync': return this.service.triggerSync(args[0], args[1], args[2], args[3]);
 			case 'turnOn': return this.service.turnOn();
 			case 'turnOff': return this.service.turnOff(args[0]);
 		}
@@ -162,6 +162,7 @@ export class UserDataSyncStoreManagementServiceChannelClient extends Disposable 
 	private revive(userDataSyncStore: IUserDataSyncStore): IUserDataSyncStore {
 		return {
 			url: URI.revive(userDataSyncStore.url),
+			type: userDataSyncStore.type,
 			defaultUrl: URI.revive(userDataSyncStore.defaultUrl),
 			insidersUrl: URI.revive(userDataSyncStore.insidersUrl),
 			stableUrl: URI.revive(userDataSyncStore.stableUrl),

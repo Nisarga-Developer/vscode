@@ -5,7 +5,7 @@
 
 import {
 	IUserDataSyncStoreService, IUserDataSyncLogService, IGlobalState, SyncResource, IUserDataSynchroniser, IUserDataSyncResourceEnablementService,
-	IUserDataSyncBackupStoreService, ISyncResourceHandle, IStorageValue, USER_DATA_SYNC_SCHEME, IRemoteUserData, Change, ALL_SYNC_RESOURCES, getEnablementKey, SYNC_SERVICE_URL_TYPE, UserDataSyncStoreType, IUserData, ISyncData, createSyncHeaders
+	IUserDataSyncBackupStoreService, ISyncResourceHandle, IStorageValue, USER_DATA_SYNC_SCHEME, IRemoteUserData, Change, ALL_SYNC_RESOURCES, getEnablementKey, SYNC_SERVICE_URL_TYPE, UserDataSyncStoreType, IUserData, ISyncData, createSyncHeaders, UserDataSyncError, UserDataSyncErrorCode
 } from 'vs/platform/userDataSync/common/userDataSync';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Event } from 'vs/base/common/event';
@@ -27,6 +27,7 @@ import { isWeb } from 'vs/base/common/platform';
 import { UserDataSyncStoreClient } from 'vs/platform/userDataSync/common/userDataSyncStoreService';
 import { getServiceMachineId } from 'vs/platform/serviceMachineId/common/serviceMachineId';
 import { generateUuid } from 'vs/base/common/uuid';
+import { IHeaders } from 'vs/base/parts/request/common/request';
 
 const argvStoragePrefx = 'globalState.argv.';
 const argvProperties: string[] = ['locale'];
@@ -431,8 +432,22 @@ export class UserDataSyncStoreTypeSynchronizer {
 	}
 
 	async update(userDataSyncStoreType: UserDataSyncStoreType): Promise<void> {
-		// Read the global state from remote
 		const syncHeaders = createSyncHeaders(generateUuid());
+		try {
+			return await this.doUpdate(userDataSyncStoreType, syncHeaders);
+		} catch (e) {
+			if (e instanceof UserDataSyncError) {
+				switch (e.code) {
+					case UserDataSyncErrorCode.PreconditionFailed:
+						return this.doUpdate(userDataSyncStoreType, syncHeaders);
+				}
+			}
+			throw e;
+		}
+	}
+
+	private async doUpdate(userDataSyncStoreType: UserDataSyncStoreType, syncHeaders: IHeaders): Promise<void> {
+		// Read the global state from remote
 		const globalStateUserData = await this.userDataSyncStoreClient.read(SyncResource.GlobalState, null, syncHeaders);
 		const remoteGlobalState = this.parseGlobalState(globalStateUserData) || { storage: {} };
 

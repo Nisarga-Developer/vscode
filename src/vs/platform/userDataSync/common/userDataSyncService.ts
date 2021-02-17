@@ -159,24 +159,6 @@ export class UserDataSyncService extends Disposable implements IUserDataSyncServ
 		return new ManualSyncTask(executionId, manifest, syncHeaders, this.synchronisers, this.logService);
 	}
 
-	// It is necessary in web to sync global state
-	// before reloading the page or switching the settings sync service
-	async syncGlobalState(): Promise<void> {
-		await this.checkEnablement();
-
-		const executionId = generateUuid();
-		try {
-			const syncHeaders = createSyncHeaders(executionId);
-			const manifest = await this.userDataSyncStoreService.manifest(syncHeaders);
-			await this.globalStateSynchroniser.sync(manifest, syncHeaders);
-		} catch (error) {
-			const userDataSyncError = UserDataSyncError.toUserDataSyncError(error);
-			this.reportUserDataSyncError(userDataSyncError, executionId);
-			throw userDataSyncError;
-		}
-
-	}
-
 	private recoveredSettings: boolean = false;
 	private async sync(manifest: IUserDataManifest | null, executionId: string, token: CancellationToken): Promise<void> {
 		if (!this.recoveredSettings) {

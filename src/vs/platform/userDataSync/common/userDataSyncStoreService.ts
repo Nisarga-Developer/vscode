@@ -30,7 +30,7 @@ const MACHINE_SESSION_ID_KEY = 'sync.machine-session-id';
 const REQUEST_SESSION_LIMIT = 100;
 const REQUEST_SESSION_INTERVAL = 1000 * 60 * 5; /* 5 minutes */
 
-type UserDataSyncStore = IUserDataSyncStore & { defaultType: UserDataSyncStoreType; type: UserDataSyncStoreType };
+type UserDataSyncStore = IUserDataSyncStore & { defaultType: UserDataSyncStoreType; };
 
 export abstract class AbstractUserDataSyncStoreManagementService extends Disposable implements IUserDataSyncStoreManagementService {
 

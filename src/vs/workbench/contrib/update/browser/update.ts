@@ -27,12 +27,11 @@ import { ShowCurrentReleaseNotesActionId, CheckForVSCodeUpdateActionId } from 'v
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { IProductService } from 'vs/platform/product/common/productService';
 import product from 'vs/platform/product/common/product';
-import { IUserDataAutoSyncEnablementService, IUserDataSyncService, IUserDataSyncStoreManagementService, UserDataSyncStoreType } from 'vs/platform/userDataSync/common/userDataSync';
+import { IUserDataAutoSyncEnablementService, IUserDataSyncService, IUserDataSyncStoreManagementService, SyncStatus, UserDataSyncStoreType } from 'vs/platform/userDataSync/common/userDataSync';
 import { IsWebContext } from 'vs/platform/contextkey/common/contextkeys';
-import { IUserDataSyncAccountService } from 'vs/platform/userDataSync/common/userDataSyncAccount';
-import { UserDataSyncStoreClient } from 'vs/platform/userDataSync/common/userDataSyncStoreService';
-import { UserDataSyncStoreTypeSynchronizer } from 'vs/platform/userDataSync/common/globalStateSync';
 import { Promises } from 'vs/base/common/async';
+import { IUserDataSyncWorkbenchService } from 'vs/workbench/services/userDataSync/common/userDataSync';
+import { Event } from 'vs/base/common/event';
 
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Idle);
 
@@ -550,10 +549,8 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 					const userDataAutoSyncEnablementService = accessor.get(IUserDataAutoSyncEnablementService);
 					const userDataSyncStoreManagementService = accessor.get(IUserDataSyncStoreManagementService);
 					const storageService = accessor.get(IStorageService);
+					const userDataSyncWorkbenchService = accessor.get(IUserDataSyncWorkbenchService);
 					const userDataSyncService = accessor.get(IUserDataSyncService);
-					const userDataSyncAccountService = accessor.get(IUserDataSyncAccountService);
-					const instantiationService = accessor.get(IInstantiationService);
-					const notificationService = accessor.get(INotificationService);
 
 					const selectSettingsSyncServiceDialogShownKey = 'switchQuality.selectSettingsSyncServiceDialogShown';
 					const userDataSyncStore = userDataSyncStoreManagementService.userDataSyncStore;
@@ -564,6 +561,7 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 						if (!userDataSyncStoreType) {
 							return;
 						}
+						storageService.store(selectSettingsSyncServiceDialogShownKey, true, StorageScope.GLOBAL, StorageTarget.USER);
 					}
 
 					const res = await dialogService.confirm({
@@ -578,28 +576,16 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 					if (res.confirmed) {
 						if (userDataSyncStoreType !== undefined) {
 							await userDataSyncStoreManagementService.switch(userDataSyncStoreType, true);
-							storageService.store(selectSettingsSyncServiceDialogShownKey, true, StorageScope.GLOBAL, StorageTarget.USER);
 
 							const promises: Promise<any>[] = [];
 
 							// Synchronise the stable service type option in insiders service
 							// So that other clients using insiders service are also updated.
 							if (isSwitchingToInsiders && userDataSyncStoreType === 'stable') {
-								if (!userDataSyncAccountService.account) {
-									notificationService.error(nls.localize('signed off', "Cannot update settings sync service because you are signed out from settings sync. Please sign in and try again."));
-									return;
-								}
-
-								const userDataSyncStoreClient = instantiationService.createInstance(UserDataSyncStoreClient, userDataSyncStore!.insidersUrl);
-								userDataSyncStoreClient.setAuthToken(userDataSyncAccountService.account.token, userDataSyncAccountService.account.authenticationProviderId);
-								promises.push(instantiationService.createInstance(UserDataSyncStoreTypeSynchronizer, userDataSyncStoreClient).update(userDataSyncStoreType));
+								promises.push(userDataSyncWorkbenchService.updateUserDataSyncStoreTypeInOtherService());
 							}
 
-							promises.push((async () => {
-								// Make sure choices are stored and synced
-								await storageService.flush();
-								await userDataSyncService.syncGlobalState();
-							})());
+							promises.push(userDataSyncService.status === SyncStatus.Syncing ? Event.toPromise(Event.filter(userDataSyncService.onDidChangeStatus, status => status !== SyncStatus.Syncing)) : Promise.resolve());
 
 							await Promises.settled(promises);
 						}

@@ -87,10 +87,12 @@ const showSyncSettingsCommand = { id: 'workbench.userDataSync.actions.settings',
 const showSyncedDataCommand = { id: 'workbench.userDataSync.actions.showSyncedData', title: localize('show synced data', "{0}: Show Synced Data", SYNC_TITLE), };
 
 const CONTEXT_TURNING_ON_STATE = new RawContextKey<false>('userDataSyncTurningOn', false);
+const CONTEXT_SETTINGS_SYNC_SERVICE_TYPE = new RawContextKey<string>('userDataSyncServiceType', '');
 
 export class UserDataSyncWorkbenchContribution extends Disposable implements IWorkbenchContribution {
 
 	private readonly turningOnSyncContext: IContextKey<boolean>;
+	private readonly userDataSyncSerivceTypeContext: IContextKey<string>;
 	private readonly conflictsSources: IContextKey<string>;
 
 	private readonly globalActivityBadgeDisposable = this._register(new MutableDisposable());
@@ -111,7 +113,7 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 		@IOutputService private readonly outputService: IOutputService,
 		@IUserDataSyncAccountService readonly authTokenService: IUserDataSyncAccountService,
 		@IUserDataAutoSyncEnablementService private readonly userDataAutoSyncEnablementService: IUserDataAutoSyncEnablementService,
-		@IUserDataAutoSyncService private readonly userDataAutoSyncService: IUserDataAutoSyncService,
+		@IUserDataAutoSyncService userDataAutoSyncService: IUserDataAutoSyncService,
 		@ITextModelService textModelResolverService: ITextModelService,
 		@IPreferencesService private readonly preferencesService: IPreferencesService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
@@ -125,6 +127,7 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 		super();
 
 		this.turningOnSyncContext = CONTEXT_TURNING_ON_STATE.bindTo(contextKeyService);
+		this.userDataSyncSerivceTypeContext = CONTEXT_SETTINGS_SYNC_SERVICE_TYPE.bindTo(contextKeyService);
 		this.conflictsSources = CONTEXT_CONFLICTS_SOURCES.bindTo(contextKeyService);
 
 		if (userDataSyncWorkbenchService.enabled) {
@@ -155,6 +158,9 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 
 			this._register(Event.any(userDataSyncService.onDidChangeStatus, userDataAutoSyncEnablementService.onDidChangeEnablement)
 				(() => this.turningOnSync = !userDataAutoSyncEnablementService.isEnabled() && userDataSyncService.status !== SyncStatus.Idle));
+
+			this.userDataSyncSerivceTypeContext.set(userDataSyncStoreManagementService.userDataSyncStore?.type || '');
+			this._register(userDataSyncStoreManagementService.onDidChangeUserDataSyncStore(() => this.userDataSyncSerivceTypeContext.set(userDataSyncStoreManagementService.userDataSyncStore?.type || '')));
 		}
 	}
 
@@ -681,6 +687,25 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 		return this.outputService.showChannel(Constants.userDataSyncLogChannelId);
 	}
 
+	private async switchSettingsSyncService(): Promise<void> {
+		if (!this.userDataSyncStoreManagementService.userDataSyncStore) {
+			return;
+		}
+
+		const currentServiceType: UserDataSyncStoreType = isEqual(this.userDataSyncStoreManagementService.userDataSyncStore.insidersUrl, this.userDataSyncStoreManagementService.userDataSyncStore.url) ? 'insiders' : 'stable';
+		const newServiceType: UserDataSyncStoreType = currentServiceType === 'insiders' ? 'stable' : 'insiders';
+		const result = await this.dialogService.confirm({
+			message: newServiceType === 'insiders'
+				? localize('switchToInsidersMessage', "Would you like to synchronize your settings, keybindings, extensions, snippets and UI State using insiders settings sync service?")
+				: localize('switchToStableMessage', "Would you like to synchronize your settings, keybindings, extensions, snippets and UI State using stable settings sync service?"),
+		});
+
+		if (result.confirmed) {
+			await this.userDataSyncStoreManagementService.switch(newServiceType);
+			await this.userDataSyncWorkbenchService.updateUserDataSyncStoreTypeInOtherService();
+		}
+	}
+
 	private async selectSettingsSyncService(userDataSyncStore: IUserDataSyncStore): Promise<void> {
 		return new Promise<void>((c, e) => {
 			const disposables: DisposableStore = new DisposableStore();
@@ -739,7 +764,8 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 		this.registerSyncNowAction();
 		this.registerConfigureSyncAction();
 		this.registerShowSettingsAction();
-		this.registerSwitchSettingsSyncServiceAction();
+		this.registerSwitchToStableSettingsSyncServiceAction();
+		this.registerSwitchToInsidersSettingsSyncServiceAction();
 		this.registerShowLogAction();
 		this.registerResetSyncDataAction();
 	}
@@ -1036,7 +1062,7 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 				});
 			}
 			run(accessor: ServicesAccessor): Promise<any> {
-				return that.userDataAutoSyncService.triggerSync([syncNowCommand.id], false, true);
+				return that.userDataSyncWorkbenchService.syncNow();
 			}
 		}));
 	}
@@ -1133,46 +1159,38 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 		}));
 	}
 
-	private registerSwitchSettingsSyncServiceAction(): void {
+	private registerSwitchToStableSettingsSyncServiceAction(): void {
 		const that = this;
-		const userDataSyncStore = this.userDataSyncStoreManagementService.userDataSyncStore;
-		if (userDataSyncStore) {
-			const currentServiceType: UserDataSyncStoreType = isEqual(userDataSyncStore.insidersUrl, userDataSyncStore.url) ? 'insiders' : 'stable';
-			const newServiceType: UserDataSyncStoreType = currentServiceType === 'insiders' ? 'stable' : 'insiders';
-			const isSwitchingToInsiders = newServiceType === 'insiders';
-			const id = `workbench.userDataSync.actions.switchSyncService.${newServiceType}`;
-			this._register(registerAction2(class ShowSyncSettingsAction extends Action2 {
-				constructor() {
-					super({
-						id,
-						title: isSwitchingToInsiders ?
-							localize('switchToInsiders', "{0}: Switch to Settings Sync Insiders Service...", SYNC_TITLE) :
-							localize('switchToStable', "{0}: Switch to Stable Settings Sync Stable Service...", SYNC_TITLE),
-						precondition: ContextKeyExpr.and(CONTEXT_SYNC_ENABLEMENT, (that.userDataSyncStoreManagementService.userDataSyncStore?.canSwitch ? ContextKeyTrueExpr.INSTANCE : ContextKeyFalseExpr.INSTANCE)),
-						f1: true
-					});
-				}
-				async run(accessor: ServicesAccessor): Promise<void> {
+		this._register(registerAction2(class ShowSyncSettingsAction extends Action2 {
+			constructor() {
+				super({
+					id: 'workbench.userDataSync.actions.switchToStableService',
+					title: localize('switchToStable', "{0}: Switch to Stable Settings Sync Service...", SYNC_TITLE),
+					precondition: ContextKeyExpr.and(CONTEXT_SYNC_ENABLEMENT, CONTEXT_SETTINGS_SYNC_SERVICE_TYPE.isEqualTo('insiders'), (that.userDataSyncStoreManagementService.userDataSyncStore?.canSwitch ? ContextKeyTrueExpr.INSTANCE : ContextKeyFalseExpr.INSTANCE)),
+					f1: true
+				});
+			}
+			run(accessor: ServicesAccessor): Promise<void> {
+				return that.switchSettingsSyncService();
+			}
+		}));
+	}
 
-					const result = await that.dialogService.confirm({
-						message: newServiceType === 'insiders'
-							? localize('switchToInsidersMessage', "Would you like to synchronize your settings, keybindings, extensions, snippets and UI State using insiders settings sync service?")
-							: localize('switchToStableMessage', "Would you like to synchronize your settings, keybindings, extensions, snippets and UI State using stable settings sync service?"),
-					});
-
-					if (result.confirmed) {
-
-						await that.userDataSyncStoreManagementService.switch(newServiceType, true);
-
-						// Make sure state is stored and synced
-						await that.storageService.flush();
-						await that.userDataSyncService.syncGlobalState();
-
-						await that.userDataSyncStoreManagementService.refresh();
-					}
-				}
-			}));
-		}
+	private registerSwitchToInsidersSettingsSyncServiceAction(): void {
+		const that = this;
+		this._register(registerAction2(class ShowSyncSettingsAction extends Action2 {
+			constructor() {
+				super({
+					id: 'workbench.userDataSync.actions.switchToInsidersService',
+					title: localize('switchToInsiders', "{0}: Switch to Insiders Settings Sync Service...", SYNC_TITLE),
+					precondition: ContextKeyExpr.and(CONTEXT_SYNC_ENABLEMENT, CONTEXT_SETTINGS_SYNC_SERVICE_TYPE.isEqualTo('stable'), (that.userDataSyncStoreManagementService.userDataSyncStore?.canSwitch ? ContextKeyTrueExpr.INSTANCE : ContextKeyFalseExpr.INSTANCE)),
+					f1: true
+				});
+			}
+			run(accessor: ServicesAccessor): Promise<void> {
+				return that.switchSettingsSyncService();
+			}
+		}));
 	}
 
 	private registerViews(): void {

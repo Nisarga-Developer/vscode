@@ -108,6 +108,7 @@ export type IAuthenticationProvider = { id: string, scopes: string[] };
 
 export interface IUserDataSyncStore {
 	readonly url: URI;
+	readonly type: UserDataSyncStoreType;
 	readonly defaultUrl: URI;
 	readonly stableUrl: URI;
 	readonly insidersUrl: URI;
@@ -453,7 +454,6 @@ export interface IUserDataSyncService {
 
 	createSyncTask(disableCache?: boolean): Promise<ISyncTask>;
 	createManualSyncTask(): Promise<IManualSyncTask>;
-	syncGlobalState(): Promise<void>;
 
 	replace(uri: URI): Promise<void>;
 	reset(): Promise<void>;
@@ -485,7 +485,7 @@ export interface IUserDataAutoSyncService {
 	readonly onError: Event<UserDataSyncError>;
 	turnOn(): Promise<void>;
 	turnOff(everywhere: boolean): Promise<void>;
-	triggerSync(sources: string[], hasToLimitSync: boolean, disableCache: boolean): Promise<void>;
+	triggerSync(sources: string[], hasToLimitSync: boolean, disableCache: boolean, immediate?: boolean): Promise<void>;
 }
 
 export const IUserDataSyncUtilService = createDecorator<IUserDataSyncUtilService>('IUserDataSyncUtilService');
