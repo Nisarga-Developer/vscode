@@ -562,6 +562,10 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 							return;
 						}
 						storageService.store(selectSettingsSyncServiceDialogShownKey, true, StorageScope.GLOBAL, StorageTarget.USER);
+						if (userDataSyncStoreType === 'stable') {
+							// Update the stable service type in the current window, so that it uses stable service after switched to insiders version (after reload).
+							await userDataSyncStoreManagementService.switch(userDataSyncStoreType);
+						}
 					}
 
 					const res = await dialogService.confirm({
@@ -574,23 +578,26 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 					});
 
 					if (res.confirmed) {
-						if (userDataSyncStoreType !== undefined) {
-							await userDataSyncStoreManagementService.switch(userDataSyncStoreType, true);
+						const promises: Promise<any>[] = [];
 
-							const promises: Promise<any>[] = [];
-
-							// Synchronise the stable service type option in insiders service
-							// So that other clients using insiders service are also updated.
-							if (isSwitchingToInsiders && userDataSyncStoreType === 'stable') {
-								promises.push(userDataSyncWorkbenchService.updateUserDataSyncStoreTypeInOtherService());
-							}
-
-							promises.push(userDataSyncService.status === SyncStatus.Syncing ? Event.toPromise(Event.filter(userDataSyncService.onDidChangeStatus, status => status !== SyncStatus.Syncing)) : Promise.resolve());
-
-							await Promises.settled(promises);
+						// If sync is happening wait until it is finished before reload
+						if (userDataSyncService.status === SyncStatus.Syncing) {
+							promises.push(Event.toPromise(Event.filter(userDataSyncService.onDidChangeStatus, status => status !== SyncStatus.Syncing)));
 						}
 
+						// Synchronise the stable service type option in insiders service, so that other clients using insiders service are also updated.
+						if (isSwitchingToInsiders && userDataSyncStoreType === 'stable') {
+							promises.push(userDataSyncWorkbenchService.synchroniseUserDataSyncStoreType());
+						}
+
+						await Promises.settled(promises);
+
 						productQualityChangeHandler(newQuality);
+					} else {
+						// Reset
+						if (userDataSyncStoreType) {
+							storageService.remove(selectSettingsSyncServiceDialogShownKey, StorageScope.GLOBAL);
+						}
 					}
 				}
 

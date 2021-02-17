@@ -286,7 +286,7 @@ export class UserDataSyncWorkbenchService extends Disposable implements IUserDat
 		await this.userDataAutoSyncService.turnOn();
 
 		if (this.userDataSyncStoreManagementService.userDataSyncStore?.canSwitch) {
-			await this.updateUserDataSyncStoreTypeInOtherService();
+			await this.synchroniseUserDataSyncStoreType();
 		}
 
 		this.notificationService.info(localize('sync turned on', "{0} is turned on", title));
@@ -296,7 +296,7 @@ export class UserDataSyncWorkbenchService extends Disposable implements IUserDat
 		return this.userDataAutoSyncService.turnOff(everywhere);
 	}
 
-	async updateUserDataSyncStoreTypeInOtherService(): Promise<void> {
+	async synchroniseUserDataSyncStoreType(): Promise<void> {
 		if (!this.userDataSyncAccountService.account) {
 			throw new Error('Cannot update because you are signed out from settings sync. Please sign in and try again.');
 		}
