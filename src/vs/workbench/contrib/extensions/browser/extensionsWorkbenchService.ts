@@ -997,7 +997,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		} else {
 			this.extensionsSyncManagementService.updateIgnoredExtensions(extension.identifier.id, !isIgnored);
 		}
-		await this.userDataAutoSyncService.triggerSync(['IgnoredExtensionsUpdated'], false, false, true);
+		await this.userDataAutoSyncService.triggerSync(['IgnoredExtensionsUpdated'], false, false);
 	}
 
 	private isInstalledExtensionSynced(extension: ILocalExtension): boolean {

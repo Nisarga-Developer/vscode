@@ -140,7 +140,7 @@ export class UserDataInitializationService implements IUserDataInitializationSer
 			this.globalStateUserData = await userDataSyncStoreClient.read(SyncResource.GlobalState, null);
 
 			if (this.globalStateUserData) {
-				const userDataSyncStoreType = new UserDataSyncStoreTypeSynchronizer(userDataSyncStoreClient, this.storageService, this.environmentService, this.fileService).getSyncStoreType(this.globalStateUserData);
+				const userDataSyncStoreType = new UserDataSyncStoreTypeSynchronizer(userDataSyncStoreClient, this.storageService, this.environmentService, this.fileService, this.logService).getSyncStoreType(this.globalStateUserData);
 				if (userDataSyncStoreType) {
 					await this.userDataSyncStoreManagementService.switch(userDataSyncStoreType);
 

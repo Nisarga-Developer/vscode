@@ -28,6 +28,7 @@ import { UserDataSyncStoreClient } from 'vs/platform/userDataSync/common/userDat
 import { getServiceMachineId } from 'vs/platform/serviceMachineId/common/serviceMachineId';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IHeaders } from 'vs/base/parts/request/common/request';
+import { ILogService } from 'vs/platform/log/common/log';
 
 const argvStoragePrefx = 'globalState.argv.';
 const argvProperties: string[] = ['locale'];
@@ -423,6 +424,7 @@ export class UserDataSyncStoreTypeSynchronizer {
 		@IStorageService private readonly storageService: IStorageService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 		@IFileService private readonly fileService: IFileService,
+		@ILogService private readonly logService: ILogService,
 	) {
 	}
 
@@ -431,28 +433,29 @@ export class UserDataSyncStoreTypeSynchronizer {
 		return remoteGlobalState?.storage[SYNC_SERVICE_URL_TYPE]?.value as UserDataSyncStoreType;
 	}
 
-	async update(userDataSyncStoreType: UserDataSyncStoreType): Promise<void> {
+	async sync(userDataSyncStoreType: UserDataSyncStoreType): Promise<void> {
 		const syncHeaders = createSyncHeaders(generateUuid());
 		try {
-			return await this.doUpdate(userDataSyncStoreType, syncHeaders);
+			return await this.doSync(userDataSyncStoreType, syncHeaders);
 		} catch (e) {
 			if (e instanceof UserDataSyncError) {
 				switch (e.code) {
 					case UserDataSyncErrorCode.PreconditionFailed:
-						return this.doUpdate(userDataSyncStoreType, syncHeaders);
+						this.logService.info(`Failed to synchronize UserDataSyncStoreType as there is a new remote version available. Synchronizing again...`);
+						return this.doSync(userDataSyncStoreType, syncHeaders);
 				}
 			}
 			throw e;
 		}
 	}
 
-	private async doUpdate(userDataSyncStoreType: UserDataSyncStoreType, syncHeaders: IHeaders): Promise<void> {
+	private async doSync(userDataSyncStoreType: UserDataSyncStoreType, syncHeaders: IHeaders): Promise<void> {
 		// Read the global state from remote
 		const globalStateUserData = await this.userDataSyncStoreClient.read(SyncResource.GlobalState, null, syncHeaders);
 		const remoteGlobalState = this.parseGlobalState(globalStateUserData) || { storage: {} };
 
 		// Update the sync store type
-		remoteGlobalState.storage[SYNC_SERVICE_URL_TYPE] = { value: userDataSyncStoreType, version: 1 };
+		remoteGlobalState.storage[SYNC_SERVICE_URL_TYPE] = { value: userDataSyncStoreType, version: GLOBAL_STATE_DATA_VERSION };
 
 		// Write the global state to remote
 		const machineId = await getServiceMachineId(this.environmentService, this.fileService, this.storageService);

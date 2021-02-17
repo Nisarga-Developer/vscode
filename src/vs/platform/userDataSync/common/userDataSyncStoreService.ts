@@ -97,8 +97,7 @@ export abstract class AbstractUserDataSyncStoreManagementService extends Disposa
 		return undefined;
 	}
 
-	abstract switch(type: UserDataSyncStoreType, donotRefresh: boolean): Promise<void>;
-	abstract refresh(): Promise<void>;
+	abstract switch(type: UserDataSyncStoreType): Promise<void>;
 	abstract getPreviousUserDataSyncStore(): Promise<IUserDataSyncStore | undefined>;
 
 }
@@ -127,16 +126,10 @@ export class UserDataSyncStoreManagementService extends AbstractUserDataSyncStor
 		}
 	}
 
-	async refresh(): Promise<void> {
-		this.updateUserDataSyncStore();
-	}
-
-	async switch(type: UserDataSyncStoreType, donotRefresh: boolean): Promise<void> {
+	async switch(type: UserDataSyncStoreType): Promise<void> {
 		if (type !== this.userDataSyncStoreType) {
 			this.userDataSyncStoreType = type;
-			if (!donotRefresh) {
-				await this.refresh();
-			}
+			this.updateUserDataSyncStore();
 		}
 	}
 
